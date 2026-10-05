@@ -186,8 +186,22 @@ body.edit-mode .edit-hint{display:block}
 .script-lib-category h4{font-size:14px;color:#333;margin-bottom:8px;padding:8px;background:#f5f5f5;border-radius:4px}
 .script-lib-item{display:flex;align-items:center;gap:8px;padding:8px;background:#fafafa;border-radius:4px;margin-bottom:4px}
 .script-lib-content{flex:1;font-size:12px;white-space:pre-wrap}
-.script-lib-btn{padding:4px 12px;font-size:11px;background:#3F51B5;color:#fff;border:none;border-radius:4px;cursor:pointer}
-.script-lib-btn:hover{background:#283593}
+.ai-panel{position:fixed;right:20px;bottom:80px;width:380px;max-height:600px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:1500;display:none;flex-direction:column;overflow:hidden}
+.ai-panel.show{display:flex}
+.ai-panel h3{padding:12px 16px;background:linear-gradient(135deg,#3F51B5,#5C6BC0);color:#fff;margin:0;font-size:15px}
+.ai-chat-history{flex:1;overflow-y:auto;padding:12px;max-height:400px}
+.ai-message{margin-bottom:12px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.ai-message.user{background:#e3f2fd;text-align:right}
+.ai-message.assistant{background:#f5f5f5}
+.ai-message.system{background:#fff3e0;color:#e65100;font-size:12px}
+.ai-message.loading{background:#f0f0f0;color:#999}
+.ai-input-area{padding:12px;border-top:1px solid #eee}
+.ai-input-area textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:none;font-family:inherit;line-height:1.5}
+.ai-input-area textarea:focus{outline:none;border-color:#3F51B5}
+.ai-config-btn{margin:8px 12px;padding:6px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;font-size:12px;cursor:pointer;color:#666}
+.ai-config-btn:hover{background:#eee}
+.btn-ai{background:linear-gradient(135deg,#3F51B5,#5C6BC0);color:#fff}
+.btn-ai:hover{background:linear-gradient(135deg,#303F9F,#3949AB)}
 .role-filter{display:flex;gap:10px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
 .role-btn{padding:8px 20px;border-radius:20px;border:2px solid #ddd;background:#fff;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}
 .role-btn.active{border-color:#3F51B5;background:#3F51B5;color:#fff}
@@ -291,6 +305,7 @@ body.dark .phase-label{color:#aaa}
 <button class="btn btn-export" onclick="exportJSON()" style="background:#7B1FA2">📋 导出JSON</button>
 <button class="btn btn-export" onclick="exportCSV()" style="background:#00897B">📊 导出CSV</button>
 <button class="btn btn-primary" onclick="configGithub()">☁️ GitHub同步</button>
+<button class="btn btn-ai" onclick="toggleAiPanel()" id="btnAi" title="AI助手">🤖 AI助手</button>
 <button class="btn btn-success" onclick="syncToGitHub()" id="btnSyncCloud" style="display:none">☁️ 同步云端</button>
 <button class="btn btn-warning" onclick="pushToGitHubRepo()" id="btnPushRepo" style="display:none">📤 推送仓库</button>
 <button class="btn btn-info" onclick="pullFromGitHubRepo()" id="btnPullRepo" style="display:none">📥 拉取仓库</button>
@@ -396,6 +411,20 @@ body.dark .phase-label{color:#aaa}
 </div>
 <div class="toast" id="toast"></toast>
 <button class="dark-toggle" onclick="toggleDarkMode()" title="切换暗黑模式">🌓</button>
+<div class="ai-panel" id="aiPanel">
+<h3>🤖 Agnes AI 助手</h3>
+<div id="aiChat"></div>
+<div class="ai-input-area">
+<textarea id="aiInput" placeholder="输入指令，如：生成今天的话术、总结本周数据..." rows="3"></textarea>
+<div style="display:flex;gap:8px;margin-top:8px">
+<button class="btn btn-primary" onclick="sendAiMessage()">发送</button>
+<button class="btn" onclick="clearAiChat()" style="background:#666;color:#fff">清空</button>
+<button class="btn btn-export" onclick="generateAiContent('storyline')" style="background:#7B1FA2;font-size:12px">🎯 生成主线</button>
+<button class="btn btn-export" onclick="generateAiContent('script')" style="background:#00897B;font-size:12px">💬 生成话术</button>
+</div>
+</div>
+<button class="ai-config-btn" onclick="configAi()">⚙️ 配置API Key</button>
+</div>
 <div class="log-panel" id="logPanel" style="display:none">
 <h3>📜 操作日志</h3>
 <div id="logContent"></div>
@@ -407,6 +436,10 @@ var GITHUB_BRANCH='master';
 var GITHUB_FILE_PATH='策划日历.html';
 var GITHUB_TOKEN='';
 var GITHUB_SHA='';
+var AGNES_API_KEY='';
+var AGNES_BASE_URL='https://apihub.agnes-ai.com/v1';
+var AGNES_MODEL='agnes-2.5-flash';
+var aiHistory=[];
 var PHASE_CONFIG = "resource,marketing,account,maintain,deposit";
 var phaseConfig={"resource":{"name":"资源期","cls":"resource"},"marketing":{"name":"营销打板期","cls":"marketing"},"account":{"name":"开户流水期","cls":"account"},"maintain":{"name":"维护期","cls":"maintain"},"deposit":{"name":"入金操作期","cls":"deposit"}};
 var surveyInfo={"1":"第1次机构联合行业调研（10/18-10/19）：外出调研旨在深入了解客户需求与行业痛点，为后续策略调整提供依据","2":"第2次机构联合行业调研（10/25-10/26）：深化客户沟通，收集反馈，完善产品方案","3":"第3次机构联合行业调研（10/31-11/1）：外出调研引出香港二次会议，建立小号真实信任感，为开户大资金铺垫。赠送电子版邀请函建立见面会期待，同步引出日斗投资私募基金产品概念","4":"第4次机构联合行业调研（11月中旬）：正式引出日斗投资私募基金产品概念，强调专业机构管理，转换客户概念。圈层精英梯队对接线下行业论坛"};
@@ -480,7 +513,7 @@ function exportPhaseReport(){renderReport();var reportText='日斗投资第十�
 function openModal(day){renderModal(day);document.getElementById('modalOverlay').classList.add('active')}
 function closeModal(){document.getElementById('modalOverlay').classList.remove('active');currentModalDay=null}
 document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();if(e.ctrlKey&&e.key==='s'){e.preventDefault();saveLocal();showToast('已保存 ✓')}if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();if(e.ctrlKey&&e.key==='s'){e.preventDefault();saveLocal();showToast('已保存 ✓')}if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}if(e.ctrlKey&&e.altKey&&e.key==='i'){e.preventDefault();toggleAiPanel()}});
 function resetData(){var backupKey=STORAGE_KEY+'_lastGood';localStorage.removeItem(STORAGE_KEY);if(localStorage.getItem(backupKey)){try{var backup=JSON.parse(localStorage.getItem(backupKey));allData=backup.allData;dayData=JSON.parse(JSON.stringify(allData[currentMonth]));showToast('已从备份恢复 ✓');addLog('从备份恢复数据')}catch(e){showToast('备份数据无效，使用默认数据');allData={"10":octoberData,"11":novemberData};dayData=JSON.parse(JSON.stringify(allData[currentMonth]))}funnelData={"leads":0,"group":0,"account":0,"deposit":0};undoStack=[];operationLog=[];todayTodos=[];renderCalendar();if(currentModalDay)renderModal(currentModalDay);updateBackupStatus();addLog('重置数据')}else{allData={"10":octoberData,"11":novemberData};dayData=JSON.parse(JSON.stringify(allData[currentMonth]));funnelData={"leads":0,"group":0,"account":0,"deposit":0};undoStack=[];operationLog=[];todayTodos=[];renderCalendar();if(currentModalDay)renderModal(currentModalDay);showToast('已重置 ✓');addLog('重置数据')}}
 function exportHTML(){if(document.activeElement&&document.activeElement.classList.contains('editable')){document.activeElement.blur()}allData[currentMonth]=dayData;var dataJSON=JSON.stringify(allData);var overrideTag='<scr'+'ipt>window.__OVERRIDE__='+dataJSON+';</scr'+'ipt>';var pageHTML='<!DOCTYPE html>
 '+document.documentElement.outerHTML;pageHTML=pageHTML.replace('<head>','<head>'+overrideTag);var blob=new Blob([pageHTML],{type:'text/html;charset=utf-8'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='日斗投资第十届策划_10-11月周期日历表.html';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast('HTML已导出 ✓');addLog('导出HTML')}
@@ -496,10 +529,17 @@ function toggleTodo(id){var todo=todayTodos.find(function(t){return t.id===id});
 function deleteTodo(id){todayTodos=todayTodos.filter(function(t){return t.id!==id});autoSave();renderTodos()}
 function renderTodos(){var h='';if(todayTodos.length===0){h='<div style="font-size:12px;color:#999;padding:12px;text-align:center">暂无待办事项</div>'}else{todayTodos.forEach(function(t){h+='<div class="todo-item'+(t.done?' done':'')+'">';h+='<input type="checkbox" class="todo-checkbox" '+(t.done?'checked':'')+' onchange="toggleTodo('+t.id+')" />';h+='<span class="todo-text">'+esc(t.text)+'</span>';h+='<button class="todo-del" onclick="deleteTodo('+t.id+')">×</button>';h+='</div>'})}document.getElementById('todoList').innerHTML=h}
 function renderTodayBanner(){var today=new Date();var month=today.getMonth()+1;var day=today.getDate();var key=String(day);var data=dayData[key];if(data){var banner=document.getElementById('todayBanner');banner.textContent='📅 今天是 '+data.date+'，今日主题：'+data.theme;banner.classList.add('show')}else{document.getElementById('todayBanner').classList.remove('show')}renderMilestoneReminder();checkMobileTouch()}
-function checkMobileTouch(){var isTouch='ontouchstart' in window||navigator.maxTouchPoints>0;if(isTouch){document.body.classList.add('touch-optimized')}}
+function escapeHtml(text){var div=document.createElement('div');div.appendChild(document.createTextNode(text));return div.innerHTML}function checkMobileTouch(){var isTouch='ontouchstart' in window||navigator.maxTouchPoints>0;if(isTouch){document.body.classList.add('touch-optimized')}}
+function toggleAiPanel(){var p=document.getElementById('aiPanel');p.classList.toggle('show');if(p.classList.contains('show')){document.getElementById('aiInput').focus()}}
+function configAi(){var key=prompt('请输入 Agnes AI API Key（在控制台获取）：','');if(key){AGNES_API_KEY=key.trim();localStorage.setItem('agnes_api_key',AGNES_API_KEY);document.getElementById('btnAi').title='已配置API Key';showToast('API Key已保存 ✓');addLog('配置Agnes AI')}else if(AGNES_API_KEY){delete AIKEYKEY;localStorage.removeItem('agnes_api_key');showToast('已清除API Key')}}
+function addAiMessage(role,content,isLoading){var div=document.createElement('div');div.className='ai-message '+role;if(isLoading){div.innerHTML='<span class="loading">思考中...</span>'}else{div.innerHTML=escapeHtml(content)}document.getElementById('aiChat').appendChild(div);div.scrollIntoView({behavior:'smooth'});return div}
+function clearAiChat(){aiHistory=[];document.getElementById('aiChat').innerHTML='<div class="ai-message system">🤖 Agnes AI 助手已就绪</div>'}
+function getSystemContext(){var today=new Date();var todayData=dayData[String(today.getDate())];var ctx='你是日斗投资第十届财富交流会的运营顾问。当前月份：'+currentMonth+'月。';if(todayData){ctx+='今天是 '+todayData.date+'，主题是：'+todayData.theme+'。'}ctx+='请根据运营目标提供专业建议。';return ctx}
+function sendAiMessage(){var input=document.getElementById('aiInput');var text=input.value.trim();if(!text)return;if(!AGNES_API_KEY){showToast('请先配置Agnes AI API Key');configAi();return}addAiMessage('user',text);input.value='';var loading=addAiMessage('assistant','',true);aiHistory.push({role:'user',content:text});var ctx=getSystemContext();fetch(AGNES_BASE_URL+'/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+AGNES_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:AGNES_MODEL,messages:[{role:'system',content:ctx},...aiHistory],max_tokens:2048,stream:false})}).then(r=>{if(!r.ok)return r.json().then(d=>Promise.reject(new Error(d.message||'请求失败')));return r.json()}).then(data=>{var reply=data.choices[0].message.content||'无回复';loading.remove();addAiMessage('assistant',reply);aiHistory.push({role:'assistant',content:reply});if(aiHistory.length>20)aiHistory.splice(0,aiHistory.length-20)}).catch(e=>{loading.remove();addAiMessage('system','错误：'+e.message)})}
+function generateAiContent(type){if(!AGNES_API_KEY){showToast('请先配置Agnes AI API Key');configAi();return}var prompt='';if(type==='storyline'){prompt='请根据当前运营阶段（'+phaseConfig[dayData[String(new Date().getDate())]?.phase]||'资源期'+'.name)+'，生成一条50字以内的今日主线策划。要突出当天核心目标和关键动作。'}else if(type==='script'){prompt='请根据当前运营阶段，生成3条适用于大群互动的话术。要求：口语化、真实感强、引导客户参与。'}addAiMessage('user',prompt+'[生成任务]');var loading=addAiMessage('assistant','',true);fetch(AGNES_BASE_URL+'/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+AGNES_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:AGNES_MODEL,messages:[{role:'system',content:'你是专业的投资运营顾问，擅长设计高效的社群话术和每日策划。'},...aiHistory.slice(-10),{role:'user',content:prompt}],max_tokens:1500,stream:true})}).then(r=>{if(!r.ok)return r.json().then(d=>Promise.reject(new Error(d.message||'请求失败')));return r});let reply='';loading.textContent='思考中...';const reader=loading._reader=r.body?.getReader();if(!reader){loading.textContent='完成';return}const decoder=new TextDecoder();function read(){reader.read().then(({done,value})=>{if(done){loading.remove();addAiMessage('assistant',reply.trim());return}const chunk=decoder.decode(value);reply+=chunk;loading.textContent=reply.slice(-200)})}read()}
 function renderMilestoneReminder(){var today=new Date();var todayKey=String(today.getDate());var upcomingMilestones=[];Object.keys(milestones).forEach(function(key){var dayNum=parseInt(key);var targetDate=new Date(today.getFullYear(),today.getMonth(),dayNum);var diffDays=Math.ceil((targetDate-today)/(1000*60*60*24));if(diffDays>=0&&diffDays<=7){upcomingMilestones.push({key:key,description:milestones[key],daysAway:diffDays})}});upcomingMilestones.sort(function(a,b){return a.daysAway-b.daysAway});var reminderEl=document.getElementById('milestoneReminder');if(upcomingMilestones.length>0){var msg='🌟 ';upcomingMilestones.slice(0,2).forEach(function(m){msg+=m.description+(m.daysAway===0?' (今天!)':' ('+m.daysAway+'天后)')+' | '});reminderEl.innerHTML=msg.slice(0,-3);reminderEl.className='milestone-reminder show upcoming'}else{reminderEl.className='milestone-reminder'}}
 function renderOperationLog(){var h='';if(operationLog.length===0){h='<div style="font-size:12px;color:#999">暂无操作记录</div>'}else{operationLog.slice(0,20).forEach(function(log){h+='<div class="log-entry"><strong>'+log.time+'</strong> - '+esc(log.msg)+'</div>'})}document.getElementById('logContent').innerHTML=h}
-(function(){try{var s=localStorage.getItem(STORAGE_KEY);if(s){var p=JSON.parse(s);if(p&&p.allData){if(validateData(p.allData)){allData=p.allData;dayData=JSON.parse(JSON.stringify(allData[currentMonth]));if(p.funnelData)funnelData=p.funnelData;if(p.scriptLib)scriptLib=p.scriptLib;if(p.operationLog)operationLog=p.operationLog;if(p.todayTodos)todayTodos=p.todayTodos}else{showToast('⚠️ 检测到数据损坏，已重置');resetData();return}}if(localStorage.getItem(STORAGE_KEY+'_dark')==='true'){document.body.classList.add('dark')}updateBackupStatus();checkBackupReminder()}catch(e){showToast('⚠️ 数据加载异常，已使用默认数据')}var savedId=localStorage.getItem('github_gist_id');var savedToken=localStorage.getItem('github_token');if(savedId&&savedToken){GITHUB_GIST_ID=savedId;GITHUB_TOKEN=savedToken;document.getElementById('btnSyncCloud').style.display='inline-block';syncFromGitHub()}if(localStorage.getItem('github_repo_token')){GITHUB_TOKEN=localStorage.getItem('github_repo_token');document.getElementById('btnPushRepo').style.display='inline-block';document.getElementById('btnPullRepo').style.display='inline-block';pullFromGitHubRepo()}document.getElementById('input-leads').value=funnelData.leads||0;document.getElementById('input-group').value=funnelData.group||0;document.getElementById('input-account').value=funnelData.account||0;document.getElementById('input-deposit').value=funnelData.deposit||0;renderCalendar();renderTodos();renderTodayBanner();renderOperationLog();document.getElementById('logPanel').style.display='block';checkMobileTouch();})();
+(function(){try{var s=localStorage.getItem(STORAGE_KEY);if(s){var p=JSON.parse(s);if(p&&p.allData){if(validateData(p.allData)){allData=p.allData;dayData=JSON.parse(JSON.stringify(allData[currentMonth]));if(p.funnelData)funnelData=p.funnelData;if(p.scriptLib)scriptLib=p.scriptLib;if(p.operationLog)operationLog=p.operationLog;if(p.todayTodos)todayTodos=p.todayTodos}else{showToast('⚠️ 检测到数据损坏，已重置');resetData();return}}if(localStorage.getItem(STORAGE_KEY+'_dark')==='true'){document.body.classList.add('dark')}updateBackupStatus();checkBackupReminder()}catch(e){showToast('⚠️ 数据加载异常，已使用默认数据')}var savedId=localStorage.getItem('github_gist_id');var savedToken=localStorage.getItem('github_token');if(savedId&&savedToken){GITHUB_GIST_ID=savedId;GITHUB_TOKEN=savedToken;document.getElementById('btnSyncCloud').style.display='inline-block';syncFromGitHub()}if(localStorage.getItem('github_repo_token')){GITHUB_TOKEN=localStorage.getItem('github_repo_token');document.getElementById('btnPushRepo').style.display='inline-block';document.getElementById('btnPullRepo').style.display='inline-block';pullFromGitHubRepo()}AGNES_API_KEY=localStorage.getItem('agnes_api_key')||'';document.getElementById('btnAi').title=AGNES_API_KEY?'已配置API Key':'点击配置Agnes AI API Key';document.getElementById('input-leads').value=funnelData.leads||0;document.getElementById('input-group').value=funnelData.group||0;document.getElementById('input-account').value=funnelData.account||0;document.getElementById('input-deposit').value=funnelData.deposit||0;renderCalendar();renderTodos();renderTodayBanner();renderOperationLog();document.getElementById('logPanel').style.display='block';checkMobileTouch();})();
 function validateData(allData){if(!allData||!allData['10']||!allData['11'])return false;var ok=true;Object.keys(allData).forEach(function(m){Object.keys(allData[m]).forEach(function(d){var day=allData[m][d];if(!day.date||!day.phase){ok=false}})});return ok}
 function checkBackupReminder(){try{var info=JSON.parse(localStorage.getItem(STORAGE_KEY+'_info')||'{}');var last=info.lastBackup?new Date(info.lastBackup):null;if(!last)return;var days=Math.floor((Date.now()-last.getTime())/(1000*60*60*24));if(days>=7){if(!confirm('⚠️ 您已超过'+days+'天未备份数据！\n\n本地缓存可能被清除，建议立即导出备份。\n\n点击"确定"导出备份，"取消"继续查看。')){exportJSON()}}}catch(e){}}
 function updateBackupStatus(){try{var info=JSON.parse(localStorage.getItem(STORAGE_KEY+'_info')||'{}');var last=info.lastBackup?new Date(info.lastBackup):null;var el=document.getElementById('backupStatus');if(el){if(!last){el.textContent='⚠️ 从未备份';el.style.color='#f44336'}else{var days=Math.floor((Date.now()-last.getTime())/(1000*60*60*24));if(days>=7){el.textContent='⚠️ 已'+days+'天未备份';el.style.color='#f44336'}else{el.textContent='✓ 最后备份:'+days+'天前';el.style.color='#4CAF50'}}}}catch(e){}}

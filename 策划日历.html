@@ -451,6 +451,9 @@ body.dark #funnelView.active,body.dark #scriptlibView.active,body.dark #reportVi
       <div style="padding:8px 14px;font-size:12px;color:#999;border-bottom:1px solid #eee">导出为文本</div>
       <button class="export-menu-item" onclick="exportDay()">📄 导出当天策划</button>
       <button class="export-menu-item" onclick="exportAll()">📚 导出全部策划</button>
+      <button class="export-menu-item" onclick="exportJSON()">💾 备份数据(JSON)</button>
+      <button class="export-menu-item" onclick="document.getElementById('jsonImport').click()">📂 恢复数据(JSON)</button>
+      <input type="file" id="jsonImport" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
       <div style="padding:8px 14px;font-size:12px;color:#999;border-bottom:1px solid #eee;border-top:1px solid #eee">分享到 Telegram</div>
       <button class="export-menu-item" onclick="shareDayToTelegram()">✈️ 分享当天</button>
       <button class="export-menu-item" onclick="shareAllToTelegram()">✈️ 分享全部</button>
@@ -575,7 +578,60 @@ var phaseConfig={"resource":{"name":"资源期","cls":"resource"},"marketing":{"
 var surveyInfo={"1":"第1次机构联合行业调研（10/18-10/19）：外出调研旨在深入了解客户需求与行业痛点，为后续策略调整提供依据","2":"第2次机构联合行业调研（10/25-10/26）：深化客户沟通，收集反馈，完善产品方案","3":"第3次机构联合行业调研（10/31-11/1）：外出调研引出香港二次会议，建立小号真实信任感，为开户大资金铺垫。赠送电子版邀请函建立见面会期待，同步引出日斗投资私募基金产品概念","4":"第4次机构联合行业调研（11月中旬）：正式引出日斗投资私募基金产品概念，强调专业机构管理，转换客户概念。圈层精英梯队对接线下行业论坛"};
 var milestones={"21":"🌟 正式开群日","1":"🌟 入金启动日","31":"🌟 第3次调研"};
 var sensitiveWords=["保本","稳赚","无风险"," guaranteed return","100%收益","躺赚","暴利"];
-var scriptLib=[{category:"开户引导",items:[{text:"老师我已经成功充值了，也领取到188的奖励，已经顺利完成任务等您下一步指示",tag:"开户成功"},{text:"老师五千准备好了，要怎么操作呢？",tag:"咨询入金"}]},{category:"氛围营造",items:[{text:"今天收益不错，感谢团队指导",tag:"收益晒单"},{text:"跟着王老师学习了半个月，终于看到希望了",tag:"学习心得"}]},{category:"痛点放大",items:[{text:"之前自己炒股亏了那么多，现在才知道专业的重要性",tag:"亏损反思"},{text:"一个人真的很难做好投资，需要团队支持",tag:"孤独投资"}]}];
+var scriptLib=[
+{category:"拒绝话术",items:[
+{text:"非常抱歉，我们证券工作人员无法泄露个人联系方式，也不能电话沟通，因为我说的所有事情都跟内部交易有关，我们的聊天都是受公司监管的。",tag:"要电话/微信"},
+{text:"我们机构之前有顾问收受客户贿赂被查出，机构领导明确禁止顾问添加云企聊以外的联系方式，这是为了防止受贿。",tag:"要联系方式"},
+{text:"我们机构对个人信息保密要求很高，语音视频容易造成信息泄露，有些同行不怀好意混进来获取通话录音恶意举报，我们还是用文字沟通比较方便。",tag:"拒绝语音视频"},
+{text:"这是秘密拉升，顾问老师不允许我们私下添加其他联系方式，泄密会导致拉升的个股受到同行阻击造成重大损失，我们要跟住老师的执行力和保密性。",tag:"要托号联系方式"},
+{text:"顾问老师说过之前有战友泄露当天个股导致打板牛股没封住，我连家人都没说，保密工作还是要到位的。",tag:"强调保密"},
+{text:"微信不太方便，我以前炒股亏了很多钱差点离婚，现在都是背着老公/老婆在炒股，他经常看我手机怕被发现，有什么我们就在云企聊说。",tag:"拒绝加微信"}
+]},
+{category:"老师号接粉话术",items:[
+{text:"人海相逢，缘自难得。股票投资今非昔比，团队之力愈显关键。南鹏廿载实战操盘，盼与战友共探股道。战友可是经证券媒体入群来此交流？",tag:"开场白-问来处"},
+{text:"好的xxx，相识是缘。我是红杉中国创始合伙人，主要从事投资和价值创造，这次发文招募股友，是希望在开门红行情中通过我的投资方法帮到大家，也借此推广新书和招募YUE创业营学员。",tag:"自我介绍"},
+{text:"1月1日是YUE06期创业班正式开课的日子，本次名师齐聚通过系统化免费课程，为散户建立价值投资思维，群里也会不定时免费分享牛股和指标礼物。",tag:"传递开课时间"},
+{text:"这是我近期带领创业班布局的个股，炒股不是一朝一夕，我每周三周五都会在群内公开布局，希望能带给你改变和收获。",tag:"传递战绩图"},
+{text:"我炒股二十多年，从一穷二白到财富自由，现在目标是先富带动后富。你手中有重仓的股票可以发给我，我正在关注消息动态，能为你精准剖析解读。",tag:"邀请解票"},
+{text:"你知道二八定律吗？股市中80%的人只想着赚钱，只有20%考虑赔钱时的应变策略，结果只有20%能长期盈利。与我相识，将是你不幸中的万幸！",tag:"痛点放大-二八定律"}
+]},
+{category:"小群吵话术",items:[
+{text:"为了更方便通知大家操作买卖点，我建立了小组群防止通知遗漏，后续买卖点通知会发到这里。",tag:"建群说明"},
+{text:"机构单元账户就是一级账户，跟普通二级账户不一样，有优先权可以直接买进涨停的票，普通账户没有优先成交权。",tag:"吵开户-解释机构账户"},
+{text:"我们是专门配合主力庄家操作拉升的，主力一次不能吞下太多不然会被证监会调查，所以放出部分筹码让散户配合买入。",tag:"吵开户-解释合作模式"},
+{text:"刚刚跟老师整理课件时争取了xx万筹码份额，大家根据自身情况认领，个人认领不低于5万，总数不要超过xx万。",tag:"吵加仓-份额认领"},
+{text:"我认领50万！今天刚结的尾款正愁没地方放，放银行一年才多少利息？跟上牛股一个涨停板就是过万收益！",tag:"吵加仓-营造氛围"},
+{text:"新股申购如果厉害都可以翻十几倍，这种新股相对于坐庄稳赚不赔，能抢多少是多少，等你票割完份额都没了。",tag:"吵新股"},
+{text:"他们这是在操纵股价，如果全用自己机构资金早就被证监会抓了，就像毛主席发明的麻雀战，忽东忽西忽聚忽散才不会被查。",tag:"吵新股-解释模式"}
+]},
+{category:"管理号话术",items:[
+{text:"你好，今天有点忙才看到消息，你是洪榕老师介绍来让我照顾的朋友吗？我跟随老师学习两年多了，以后叫我师兄就行，好票我罩着你！",tag:"圈管理号-第一天"},
+{text:"我叫李飞，重庆人，年轻时当过兵，现在做地产生意。老师让我帮助大家也是对我的认可，以后缺什么战法指标找我就行。",tag:"自我介绍"},
+{text:"我也是自愿申请帮助大家的，跟着老师赚了钱，老师什么都不要，送礼送红包全部拒绝，所以我自告奋勇想尽绵薄之力。",tag:"建立信任"},
+{text:"我炒股七八年，以前跟着其他老师亏了不少，跟着洪榕老师才慢慢赚回来，老师操作稳健，买卖都会提示，这也是我愿意追随的原因。",tag:"晒经历-建立信任"},
+{text:"我刚才找老师报名明天的建仓了，预留了300万资金跟上，师弟也找老师报名了吧？难得是个机会，跟上吃肉喝汤也不错。",tag:"建仓报名"},
+{text:"老师独家选股技术一般人不理解，但都是经过调研和财团布局的，要是像咱们那个选股思路，还用得着跟着老师学习吗？",tag:"客户质疑时回应"}
+]},
+{category:"深度精聊技巧",items:[
+{text:"进群后先学习两天再加老师，让客户度过新环境的感官适应期，不要急着加。",tag:"节奏控制"},
+{text:"围绕客户信息预设套路装旧相识，让客户感到惊讶和缘分，同时扩大客户虚荣心，赞美是放大虚荣心的方式。",tag:"装旧相识"},
+{text:"客户任何主动行为都是为了得到什么，只有掌握客户需求点才有进攻点，聊天才能精简易懂提高效率。",tag:"需求分析"},
+{text:"和客户建立共鸣后，如果客户没有主动做策划中的事，采用欲擒故纵冷落一下，让他明白要经常主动才能被重视。",tag:"欲擒故纵"},
+{text:"找共同点、找需求、找弱点，精准打击，见证结果，不需要多复杂，复杂的是怎么制定过程。",tag:"核心方法论"}
+]},
+{category:"开户引导",items:[
+{text:"老师我已经成功充值了，也领取到188的奖励，已经顺利完成任务等您下一步指示",tag:"开户成功"},
+{text:"老师五千准备好了，要怎么操作呢？",tag:"咨询入金"}
+]},
+{category:"氛围营造",items:[
+{text:"今天收益不错，感谢团队指导",tag:"收益晒单"},
+{text:"跟着王老师学习了半个月，终于看到希望了",tag:"学习心得"}
+]},
+{category:"痛点放大",items:[
+{text:"之前自己炒股亏了那么多，现在才知道专业的重要性",tag:"亏损反思"},
+{text:"一个人真的很难做好投资，需要团队支持",tag:"孤独投资"}
+]}
+];
 var funnelData={"leads":0,"group":0,"account":0,"deposit":0};
 var currentMonth='10';
 var editMode=false;
@@ -689,7 +745,7 @@ function updateAiStatus(){
     el.className='ai-subtitle ai-status-unconfigured';
   }
 }
-(function(){try{var s=localStorage.getItem(STORAGE_KEY);if(s){var p=JSON.parse(s);if(p&&p.allData){if(validateData(p.allData)){allData=p.allData;dayData=JSON.parse(JSON.stringify(allData[currentMonth]));if(p.funnelData)funnelData=p.funnelData;if(p.scriptLib)scriptLib=p.scriptLib;if(p.operationLog)operationLog=p.operationLog;if(p.todayTodos)todayTodos=p.todayTodos}else{showToast('⚠️ 检测到数据损坏，已重置');resetData();return}}if(localStorage.getItem(STORAGE_KEY+'_dark')==='true'){document.body.classList.add('dark')}updateBackupStatus();checkBackupReminder()}}catch(e){showToast('⚠️ 数据加载异常，已使用默认数据')}var savedId=localStorage.getItem('github_gist_id');var savedToken=localStorage.getItem('github_token');if(savedId&&savedToken){GITHUB_GIST_ID=savedId;GITHUB_TOKEN=savedToken;var _bsc=_$('btnSyncCloud');if(_bsc)_bsc.style.display='inline-block';syncFromGitHub()}if(localStorage.getItem('github_repo_token')){GITHUB_TOKEN=localStorage.getItem('github_repo_token');var _bpr=_$('btnPushRepo');if(_bpr)_bpr.style.display='inline-block';var _bpl=_$('btnPullRepo');if(_bpl)_bpl.style.display='inline-block';pullFromGitHubRepo()}AGNES_API_KEY=localStorage.getItem('agnes_api_key')||'';updateAiStatus();var _btnAi=_$('btnAi');if(_btnAi)_btnAi.title=AGNES_API_KEY?'已配置API Key':'点击配置夜风AI API Key';var _il=_$('input-leads');if(_il)_il.value=funnelData.leads||0;var _ig=_$('input-group');if(_ig)_ig.value=funnelData.group||0;var _ia=_$('input-account');if(_ia)_ia.value=funnelData.account||0;var _id=_$('input-deposit');if(_id)_id.value=funnelData.deposit||0;renderCalendarNav();renderTopStats();renderTodos();renderTodayBanner();renderOperationLog();var _lp=_$('logPanel');if(_lp)_lp.style.display='block';checkMobileTouch();})();
+(function(){try{var s=localStorage.getItem(STORAGE_KEY);if(s){var p=JSON.parse(s);if(p&&p.allData){if(validateData(p.allData)){allData=p.allData;dayData=JSON.parse(JSON.stringify(allData[currentMonth]));if(p.funnelData)funnelData=p.funnelData;if(p.scriptLib&&p.scriptLib.length>=8)scriptLib=p.scriptLib;if(p.operationLog)operationLog=p.operationLog;if(p.todayTodos)todayTodos=p.todayTodos}else{showToast('⚠️ 检测到数据损坏，已重置');resetData();return}}if(localStorage.getItem(STORAGE_KEY+'_dark')==='true'){document.body.classList.add('dark')}updateBackupStatus();checkBackupReminder()}}catch(e){showToast('⚠️ 数据加载异常，已使用默认数据')}var savedId=localStorage.getItem('github_gist_id');var savedToken=localStorage.getItem('github_token');if(savedId&&savedToken){GITHUB_GIST_ID=savedId;GITHUB_TOKEN=savedToken;var _bsc=_$('btnSyncCloud');if(_bsc)_bsc.style.display='inline-block';syncFromGitHub()}if(localStorage.getItem('github_repo_token')){GITHUB_TOKEN=localStorage.getItem('github_repo_token');var _bpr=_$('btnPushRepo');if(_bpr)_bpr.style.display='inline-block';var _bpl=_$('btnPullRepo');if(_bpl)_bpl.style.display='inline-block';pullFromGitHubRepo()}AGNES_API_KEY=localStorage.getItem('agnes_api_key')||'';updateAiStatus();var _btnAi=_$('btnAi');if(_btnAi)_btnAi.title=AGNES_API_KEY?'已配置API Key':'点击配置夜风AI API Key';var _il=_$('input-leads');if(_il)_il.value=funnelData.leads||0;var _ig=_$('input-group');if(_ig)_ig.value=funnelData.group||0;var _ia=_$('input-account');if(_ia)_ia.value=funnelData.account||0;var _id=_$('input-deposit');if(_id)_id.value=funnelData.deposit||0;renderCalendarNav();renderTopStats();renderTodos();renderTodayBanner();renderOperationLog();var _lp=_$('logPanel');if(_lp)_lp.style.display='block';checkMobileTouch();})();
 function validateData(allData){if(!allData||!allData['10']||!allData['11'])return false;var ok=true;Object.keys(allData).forEach(function(m){Object.keys(allData[m]).forEach(function(d){var day=allData[m][d];if(!day.date||!day.phase){ok=false}})});return ok}
 function checkBackupReminder(){try{var info=JSON.parse(localStorage.getItem(STORAGE_KEY+'_info')||'{}');var last=info.lastBackup?new Date(info.lastBackup):null;if(!last)return;var days=Math.floor((Date.now()-last.getTime())/(1000*60*60*24));if(days>=7){showToast('⚠️ 已超过'+days+'天未备份，建议导出备份')}}catch(e){}}
 function updateBackupStatus(){try{try{var info=JSON.parse(localStorage.getItem(STORAGE_KEY+'_info')||'{}');var last=info.lastBackup?new Date(info.lastBackup):null;var el=document.getElementById('backupStatus');if(el){if(!last){el.textContent='⚠️ 从未备份';el.style.color='#f44336'}else{var days=Math.floor((Date.now()-last.getTime())/(1000*60*60*24));if(days>=7){el.textContent='⚠️ 已'+days+'天未备份';el.style.color='#f44336'}else{el.textContent='✓ 最后备份:'+days+'天前';el.style.color='#4CAF50'}}}}catch(e){}}catch(e){}}
@@ -938,16 +994,18 @@ function formatDayHTML(day){
   return h;
 }
 
-function buildExportHTML(title,days){
+function buildExportHTML(title,days,includeMedia){
+  var mediaHtml='';
+  if(includeMedia&&mediaLib.length>0){mediaHtml='<h2 style=\'margin-top:30px\'>🖼️ 素材库图片</h2><div style=\'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px\'>';mediaLib.forEach(function(m){mediaHtml+='<div style=\'background:#fff;padding:8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.1)\'><img src=\''+m.data+'\' style=\'width:100%;border-radius:4px\'><div style=\'font-size:11px;color:#666;margin-top:4px\'>'+m.name+'</div></div>'});mediaHtml+='</div>'}
   var body='';
   days.forEach(function(day){body+=formatDayHTML(day)});
-  return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>'+title+'</title></head><body style="font-family:Microsoft YaHei,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5"><h1 style="text-align:center;color:#333;margin-bottom:20px">'+title+'</h1>'+body+'</body></html>';
+  return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>'+title+'</title></head><body style="font-family:Microsoft YaHei,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5"><h1 style="text-align:center;color:#333;margin-bottom:20px">'+title+'</h1>'+body+mediaHtml+'</body></html>';
 }
 
 function exportDay(){
   if(!currentDetailDay){showToast('请先选择日期');return}
   var d=dayData[String(currentDetailDay)];
-  var html=buildExportHTML('日斗投资 · '+d.date+' 运营策划',[currentDetailDay]);
+  var html=buildExportHTML('日斗投资 · '+d.date+' 运营策划',[currentDetailDay],true);
   downloadFile(html,'策划_'+d.date+'.html','text/html');
   document.getElementById('exportMenu').style.display='none';
   showToast('当天策划已导出 ✓');
@@ -959,7 +1017,7 @@ function exportAll(){
   Object.keys(allData).forEach(function(month){
     Object.keys(allData[month]).sort(function(a,b){return parseInt(a)-parseInt(b)}).forEach(function(day){days.push(day)});
   });
-  var html=buildExportHTML('日斗投资财富交流会 · 运营周期表（10月12日-11月8日）',days);
+  var html=buildExportHTML('日斗投资财富交流会 · 运营周期表（10月12日-11月8日）',days,true);
   downloadFile(html,'策划日历_全部_'+new Date().toISOString().slice(0,10)+'.html','text/html');
   document.getElementById('exportMenu').style.display='none';
   showToast('全部策划已导出 ✓');
@@ -975,6 +1033,63 @@ function downloadFile(content,filename,mime){
   document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
+
+// ===== 指标Tab编辑 =====
+function editMetric(field){
+  if(!currentDetailDay)return;
+  var d=dayData[String(currentDetailDay)];
+  var current=d[field]||0;
+  var val=prompt('输入'+field+'数值（当前：'+current+'）',current);
+  if(val===null)return;
+  var num=parseInt(val)||0;
+  d[field]=num;
+  autoSave();
+  renderDetail(currentDetailDay);
+  showToast(field+'已更新为 '+num);
+  addLog('编辑指标 '+field+': '+num);
+}
+
+// ===== AI生成内容写入 =====
+function insertAiToTab(tab){
+  var lastMsg=document.querySelector('.ai-msg.assistant:last-child');
+  if(!lastMsg){showToast('没有AI生成内容');return}
+  var text=lastMsg.textContent;
+  if(!currentDetailDay){showToast('请先选择日期');return}
+  var d=dayData[String(currentDetailDay)];
+  var fieldMap={storyline:'storyline',teacher:'teacherScripts',manager:'managerScripts',small:'smallGroupScripts',review:'dayReview'};
+  var field=fieldMap[tab];
+  if(field){d[field]=(d[field]?d[field]+'\n\n':'')+text;autoSave();renderDetail(currentDetailDay);showToast('已写入'+tab+'Tab ✓');addLog('AI内容写入'+tab)}
+  else{showToast('未知Tab')}
+}
+
+// ===== JSON数据导入导出 =====
+function exportJSON(){
+  var data={allData:allData,funnelData:funnelData,scriptLib:scriptLib,operationLog:operationLog,todayTodos:todayTodos,exportedAt:new Date().toISOString()};
+  downloadFile(JSON.stringify(data,null,2),'策划日历备份_'+new Date().toISOString().slice(0,10)+'.json','application/json');
+  document.getElementById('exportMenu').style.display='none';
+  showToast('数据备份已导出 ✓');
+  addLog('导出JSON备份');
+}
+function importJSON(file){
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      if(data.allData){allData=data.allData;dayData=JSON.parse(JSON.stringify(allData[currentMonth]))}
+      if(data.funnelData)funnelData=data.funnelData;
+      if(data.scriptLib)scriptLib=data.scriptLib;
+      if(data.operationLog)operationLog=data.operationLog;
+      if(data.todayTodos)todayTodos=data.todayTodos;
+      autoSave();
+      renderCalendarNav();renderTopStats();renderDetail(currentDetailDay);
+      showToast('数据恢复成功 ✓');
+      addLog('从JSON恢复数据');
+    }catch(err){showToast('文件格式错误: '+err.message)}
+  };
+  reader.readAsText(file);
+  document.getElementById('exportMenu').style.display='none';
+}
 function formatDayText(day){
   var d=dayData[String(day)];
   if(!d)return '';
@@ -1038,6 +1153,7 @@ function loadMediaLib(){try{mediaLib=JSON.parse(localStorage.getItem(MEDIA_KEY)|
 function saveMediaLib(){try{localStorage.setItem(MEDIA_KEY,JSON.stringify(mediaLib))}catch(e){showToast('存储空间不足，请删除部分图片')}}
 function showMediaLib(){loadMediaLib();document.getElementById('mediaLibView').style.display='block';renderMediaLib()}
 function closeMediaLib(){document.getElementById('mediaLibView').style.display='none'}
+function compressImage(file,callback){var reader=new FileReader();reader.onload=function(e){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas');var maxW=1200,maxH=1200;var w=img.width,h=img.height;if(w>maxW){h=h*maxW/w;w=maxW}if(h>maxH){w=w*maxH/h;h=maxH}canvas.width=w;canvas.height=h;var ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);callback(canvas.toDataURL('image/jpeg',0.7))};img.src=e.target.result};reader.readAsDataURL(file)}
 function handleMediaUpload(files){
   if(!files||files.length===0)return;
   var category=prompt('请选择分类：1=课程海报 2=参考素材 3=聊天截图 4=其他','1');
@@ -1052,7 +1168,7 @@ function handleMediaUpload(files){
         mediaLib.push({id:Date.now()+Math.random(),name:file.name,category:cat,catName:catNames[cat],data:e.target.result,size:Math.round(file.size/1024),time:new Date().toLocaleString()});
         loaded++;
         if(loaded===files.length){saveMediaLib();renderMediaLib();showToast('已上传 '+files.length+' 张图片 ✓')}};
-      reader.readAsDataURL(file);
+      compressImage(file,function(dataUrl){mediaLib.push({id:Date.now()+Math.random(),name:file.name,category:cat,catName:catNames[cat],data:dataUrl,size:Math.round(file.size/1024),time:new Date().toLocaleString()});loaded++;if(loaded===files.length){saveMediaLib();renderMediaLib();showToast('已上传 '+files.length+' 张图片（已压缩）✓')}});
     })(files[i]);
   }
 }

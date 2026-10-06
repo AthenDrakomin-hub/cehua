@@ -870,62 +870,65 @@ document.addEventListener('click',function(e){
   }
 });
 
-function formatDayData(day){
+function formatDayHTML(day){
   var d=dayData[String(day)];
   if(!d)return '';
   var phaseNames={resource:'资源期',marketing:'营销打板期',account:'开户流水期',maintain:'维护期',deposit:'入金操作期'};
-  var text='====================\n';
-  text+='📅 '+d.date+' · '+d.week+'\n';
-  text+='🏷️ 阶段：'+(phaseNames[d.phase]||d.phase)+'\n';
-  text+='🎯 主题：'+(d.theme||'')+'\n';
-  text+='====================\n\n';
-  if(d.storyline){text+='【当日主线策划】\n'+d.storyline+'\n\n'}
+  var phaseColors={resource:'#4CAF50',marketing:'#FF9800',account:'#2196F3',maintain:'#9C27B0',deposit:'#E91E63'};
+  var h='<div style="margin-bottom:24px;padding:16px;background:#fafafa;border-radius:8px;border-left:4px solid '+(phaseColors[d.phase]||'#999')+'">';
+  h+='<div style="font-size:18px;font-weight:700;margin-bottom:4px">📅 '+d.date+' · '+d.week+'</div>';
+  h+='<div style="display:inline-block;padding:2px 10px;border-radius:10px;background:'+(phaseColors[d.phase]||'#999')+';color:#fff;font-size:12px;margin-bottom:8px">'+(phaseNames[d.phase]||d.phase)+'</div>';
+  h+='<div style="font-size:14px;color:#666;margin-bottom:12px">🎯 '+d.theme+'</div>';
+  if(d.storyline){h+='<div style="margin-bottom:10px"><strong>【当日主线策划】</strong><div style="white-space:pre-wrap;margin-top:4px;line-height:1.8">'+d.storyline+'</div></div>'}
   if(d.courseContent&&d.courseContent.length>0){
-    text+='【课程安排】\n';
-    d.courseContent.forEach(function(c,i){text+=(i+1)+'. '+c.title+'\n   '+c.detail+'\n'});
-    text+='\n';
+    h+='<div style="margin-bottom:10px"><strong>【课程安排】</strong><div style="margin-top:4px">';
+    d.courseContent.forEach(function(c,i){h+='<div style="margin-bottom:6px"><span style="color:#2196F3">'+(i+1)+'.</span> <strong>'+c.title+'</strong><div style="color:#666;margin-left:18px">'+c.detail+'</div></div>'});
+    h+='</div></div>';
   }
   if(d.groupScripts&&d.groupScripts.length>0){
-    text+='【大群话术】\n';
-    d.groupScripts.forEach(function(s,i){text+=(i+1)+'. '+s.content+'\n'});
-    text+='\n';
+    h+='<div style="margin-bottom:10px"><strong>【大群话术】</strong><div style="margin-top:4px">';
+    d.groupScripts.forEach(function(s,i){h+='<div style="margin-bottom:4px"><span style="color:#4CAF50">'+(i+1)+'.</span> '+s.content+'</div>'});
+    h+='</div></div>';
   }
-  if(d.teacherScripts){text+='【老师话术】\n'+d.teacherScripts+'\n\n'}
-  if(d.managerScripts){text+='【管理号话术】\n'+d.managerScripts+'\n\n'}
-  if(d.smallGroupScripts){text+='【小号话术】\n'+d.smallGroupScripts+'\n\n'}
-  if(d.dayReview){text+='【当日复盘】\n'+d.dayReview+'\n\n'}
-  if(d.nextPrep){text+='【次日准备】\n'+d.nextPrep+'\n\n'}
-  return text;
+  if(d.teacherScripts){h+='<div style="margin-bottom:10px"><strong>【老师话术】</strong><div style="white-space:pre-wrap;margin-top:4px;line-height:1.8">'+d.teacherScripts+'</div></div>'}
+  if(d.managerScripts){h+='<div style="margin-bottom:10px"><strong>【管理号话术】</strong><div style="white-space:pre-wrap;margin-top:4px;line-height:1.8">'+d.managerScripts+'</div></div>'}
+  if(d.smallGroupScripts){h+='<div style="margin-bottom:10px"><strong>【小号话术】</strong><div style="white-space:pre-wrap;margin-top:4px;line-height:1.8">'+d.smallGroupScripts+'</div></div>'}
+  if(d.dayReview){h+='<div style="margin-bottom:10px"><strong>【当日复盘】</strong><div style="white-space:pre-wrap;margin-top:4px;line-height:1.8">'+d.dayReview+'</div></div>'}
+  if(d.nextPrep){h+='<div style="margin-bottom:10px"><strong>【次日准备】</strong><div style="white-space:pre-wrap;margin-top:4px;line-height:1.8">'+d.nextPrep+'</div></div>'}
+  h+='</div>';
+  return h;
+}
+
+function buildExportHTML(title,days){
+  var body='';
+  days.forEach(function(day){body+=formatDayHTML(day)});
+  return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>'+title+'</title></head><body style="font-family:Microsoft YaHei,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5"><h1 style="text-align:center;color:#333;margin-bottom:20px">'+title+'</h1>'+body+'</body></html>';
 }
 
 function exportDay(){
   if(!currentDetailDay){showToast('请先选择日期');return}
-  var text=formatDayData(currentDetailDay);
-  if(!text){showToast('当天无数据');return}
-  downloadText(text,'策划_'+dayData[String(currentDetailDay)].date+'.txt');
+  var d=dayData[String(currentDetailDay)];
+  var html=buildExportHTML('日斗投资 · '+d.date+' 运营策划',[currentDetailDay]);
+  downloadFile(html,'策划_'+d.date+'.html','text/html');
   document.getElementById('exportMenu').style.display='none';
   showToast('当天策划已导出 ✓');
-  addLog('导出当天策划: '+currentDetailDay);
+  addLog('导出当天策划HTML: '+currentDetailDay);
 }
 
 function exportAll(){
-  var text='日斗投资财富交流会 · 运营周期表\n';
-  text+='导出时间：'+new Date().toLocaleString()+'\n';
-  text+='周期：10月12日 - 11月8日（28天）\n\n';
+  var days=[];
   Object.keys(allData).forEach(function(month){
-    var monthData=allData[month];
-    Object.keys(monthData).sort(function(a,b){return parseInt(a)-parseInt(b)}).forEach(function(day){
-      text+=formatDayData(day);
-    });
+    Object.keys(allData[month]).sort(function(a,b){return parseInt(a)-parseInt(b)}).forEach(function(day){days.push(day)});
   });
-  downloadText(text,'策划日历_全部_'+new Date().toISOString().slice(0,10)+'.txt');
+  var html=buildExportHTML('日斗投资财富交流会 · 运营周期表（10月12日-11月8日）',days);
+  downloadFile(html,'策划日历_全部_'+new Date().toISOString().slice(0,10)+'.html','text/html');
   document.getElementById('exportMenu').style.display='none';
   showToast('全部策划已导出 ✓');
-  addLog('导出全部策划');
+  addLog('导出全部策划HTML');
 }
 
-function downloadText(text,filename){
-  var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+function downloadFile(content,filename,mime){
+  var blob=new Blob([content],{type:mime+';charset=utf-8'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
   a.href=url;a.download=filename;
@@ -933,9 +936,35 @@ function downloadText(text,filename){
   document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
+function formatDayText(day){
+  var d=dayData[String(day)];
+  if(!d)return '';
+  var phaseNames={resource:'资源期',marketing:'营销打板期',account:'开户流水期',maintain:'维护期',deposit:'入金操作期'};
+  var t='📅 '+d.date+' · '+d.week+'\n';
+  t+='🏷️ '+(phaseNames[d.phase]||d.phase)+'\n';
+  t+='🎯 '+d.theme+'\n\n';
+  if(d.storyline){t+='【主线策划】\n'+d.storyline+'\n\n'}
+  if(d.courseContent&&d.courseContent.length>0){
+    t+='【课程安排】\n';
+    d.courseContent.forEach(function(c,i){t+=(i+1)+'. '+c.title+'\n   '+c.detail+'\n'});
+    t+='\n';
+  }
+  if(d.groupScripts&&d.groupScripts.length>0){
+    t+='【大群话术】\n';
+    d.groupScripts.forEach(function(s,i){t+=(i+1)+'. '+s.content+'\n'});
+    t+='\n';
+  }
+  if(d.teacherScripts){t+='【老师话术】\n'+d.teacherScripts+'\n\n'}
+  if(d.managerScripts){t+='【管理号话术】\n'+d.managerScripts+'\n\n'}
+  if(d.smallGroupScripts){t+='【小号话术】\n'+d.smallGroupScripts+'\n\n'}
+  if(d.dayReview){t+='【当日复盘】\n'+d.dayReview+'\n\n'}
+  if(d.nextPrep){t+='【次日准备】\n'+d.nextPrep+'\n\n'}
+  return t;
+}
+
 function shareDayToTelegram(){
   if(!currentDetailDay){showToast('请先选择日期');return}
-  var text=formatDayData(currentDetailDay);
+  var text=formatDayText(currentDetailDay);
   if(!text){showToast('当天无数据');return}
   openTelegramShare(text);
   document.getElementById('exportMenu').style.display='none';
@@ -946,7 +975,7 @@ function shareAllToTelegram(){
   text+='周期：10月12日 - 11月8日（28天）\n\n';
   Object.keys(allData).forEach(function(month){
     Object.keys(allData[month]).sort(function(a,b){return parseInt(a)-parseInt(b)}).forEach(function(day){
-      text+=formatDayData(day);
+      text+=formatDayText(day);
     });
   });
   openTelegramShare(text);

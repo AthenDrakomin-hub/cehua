@@ -319,6 +319,13 @@ body.dark .resizer:hover::after{background:#fff}
 body.dark .panel-toggle{background:#16213e;border-color:#2a2a4a;color:#888}
 body.dark .panel-toggle:hover{background:#3F51B5;color:#fff}
 
+.export-menu-item{display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:#333;font-family:inherit;transition:background .15s}
+.export-menu-item:hover{background:#f0f0f0}
+body.dark .export-menu-item{color:#ccc}
+body.dark .export-menu-item:hover{background:#2a2a4a}
+body.dark #exportMenu{background:#16213e;border-color:#2a2a4a}
+
+
 .main-layout{display:flex;gap:0;min-height:calc(100vh - 120px);position:relative}
 .left-panel{width:220px;min-width:160px;background:#fff;border-right:1px solid #e0e0e0;padding:12px;overflow-y:auto;max-height:calc(100vh - 120px);position:relative;flex-shrink:0}
 body.dark .left-panel{background:#16213e;border-color:#2a2a4a}
@@ -421,7 +428,17 @@ body.dark #funnelView.active,body.dark #scriptlibView.active,body.dark #reportVi
     </select>
     <button class="btn btn-edit" id="btnEdit" onclick="toggleEdit()">✏️ 编辑</button>
     <button class="btn btn-save" onclick="saveLocal()">💾 保存</button>
-    <button class="btn btn-export" onclick="exportHTML()">📦 导出</button>
+    <div style="position:relative;display:inline-block">
+    <button class="btn btn-export" onclick="toggleExportMenu()">📦 导出 ▾</button>
+    <div id="exportMenu" style="display:none;position:absolute;top:100%;right:0;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;min-width:180px;margin-top:4px">
+      <div style="padding:8px 14px;font-size:12px;color:#999;border-bottom:1px solid #eee">导出为文本</div>
+      <button class="export-menu-item" onclick="exportDay()">📄 导出当天策划</button>
+      <button class="export-menu-item" onclick="exportAll()">📚 导出全部策划</button>
+      <div style="padding:8px 14px;font-size:12px;color:#999;border-bottom:1px solid #eee;border-top:1px solid #eee">分享到 Telegram</div>
+      <button class="export-menu-item" onclick="shareDayToTelegram()">✈️ 分享当天</button>
+      <button class="export-menu-item" onclick="shareAllToTelegram()">✈️ 分享全部</button>
+    </div>
+  </div>
     <button class="btn btn-primary" onclick="pushToGitHubRepo()">☁️ 同步</button>
     <button class="dark-toggle" onclick="toggleDarkMode()" style="position:static;width:auto;height:auto;font-size:16px;background:none;box-shadow:none">🌓</button>
   </div>
@@ -838,6 +855,113 @@ function clearAiChat(){document.getElementById('aiChatArea').innerHTML='';showTo
 // Override toggleAiPanel (no longer floating)
 
 
+
+
+// ===== 导出与分享功能 =====
+function toggleExportMenu(){
+  var menu=document.getElementById('exportMenu');
+  menu.style.display=menu.style.display==='block'?'none':'block';
+}
+// 点击外部关闭菜单
+document.addEventListener('click',function(e){
+  var menu=document.getElementById('exportMenu');
+  if(menu&&menu.style.display==='block'&&!e.target.closest('.btn-export')&&!e.target.closest('#exportMenu')){
+    menu.style.display='none';
+  }
+});
+
+function formatDayData(day){
+  var d=dayData[String(day)];
+  if(!d)return '';
+  var phaseNames={resource:'资源期',marketing:'营销打板期',account:'开户流水期',maintain:'维护期',deposit:'入金操作期'};
+  var text='====================\n';
+  text+='📅 '+d.date+' · '+d.week+'\n';
+  text+='🏷️ 阶段：'+(phaseNames[d.phase]||d.phase)+'\n';
+  text+='🎯 主题：'+(d.theme||'')+'\n';
+  text+='====================\n\n';
+  if(d.storyline){text+='【当日主线策划】\n'+d.storyline+'\n\n'}
+  if(d.courseContent&&d.courseContent.length>0){
+    text+='【课程安排】\n';
+    d.courseContent.forEach(function(c,i){text+=(i+1)+'. '+c.title+'\n   '+c.detail+'\n'});
+    text+='\n';
+  }
+  if(d.groupScripts&&d.groupScripts.length>0){
+    text+='【大群话术】\n';
+    d.groupScripts.forEach(function(s,i){text+=(i+1)+'. '+s.content+'\n'});
+    text+='\n';
+  }
+  if(d.teacherScripts){text+='【老师话术】\n'+d.teacherScripts+'\n\n'}
+  if(d.managerScripts){text+='【管理号话术】\n'+d.managerScripts+'\n\n'}
+  if(d.smallGroupScripts){text+='【小号话术】\n'+d.smallGroupScripts+'\n\n'}
+  if(d.dayReview){text+='【当日复盘】\n'+d.dayReview+'\n\n'}
+  if(d.nextPrep){text+='【次日准备】\n'+d.nextPrep+'\n\n'}
+  return text;
+}
+
+function exportDay(){
+  if(!currentDetailDay){showToast('请先选择日期');return}
+  var text=formatDayData(currentDetailDay);
+  if(!text){showToast('当天无数据');return}
+  downloadText(text,'策划_'+dayData[String(currentDetailDay)].date+'.txt');
+  document.getElementById('exportMenu').style.display='none';
+  showToast('当天策划已导出 ✓');
+  addLog('导出当天策划: '+currentDetailDay);
+}
+
+function exportAll(){
+  var text='日斗投资财富交流会 · 运营周期表\n';
+  text+='导出时间：'+new Date().toLocaleString()+'\n';
+  text+='周期：10月12日 - 11月8日（28天）\n\n';
+  Object.keys(allData).forEach(function(month){
+    var monthData=allData[month];
+    Object.keys(monthData).sort(function(a,b){return parseInt(a)-parseInt(b)}).forEach(function(day){
+      text+=formatDayData(day);
+    });
+  });
+  downloadText(text,'策划日历_全部_'+new Date().toISOString().slice(0,10)+'.txt');
+  document.getElementById('exportMenu').style.display='none';
+  showToast('全部策划已导出 ✓');
+  addLog('导出全部策划');
+}
+
+function downloadText(text,filename){
+  var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+function shareDayToTelegram(){
+  if(!currentDetailDay){showToast('请先选择日期');return}
+  var text=formatDayData(currentDetailDay);
+  if(!text){showToast('当天无数据');return}
+  openTelegramShare(text);
+  document.getElementById('exportMenu').style.display='none';
+}
+
+function shareAllToTelegram(){
+  var text='日斗投资财富交流会 · 运营周期表\n';
+  text+='周期：10月12日 - 11月8日（28天）\n\n';
+  Object.keys(allData).forEach(function(month){
+    Object.keys(allData[month]).sort(function(a,b){return parseInt(a)-parseInt(b)}).forEach(function(day){
+      text+=formatDayData(day);
+    });
+  });
+  openTelegramShare(text);
+  document.getElementById('exportMenu').style.display='none';
+}
+
+function openTelegramShare(text){
+  if(text.length>4000){
+    showToast('内容过长，已截取前4000字');
+    text=text.substring(0,4000)+'\n\n... (内容过长，已截断)';
+  }
+  var url='https://t.me/share/url?text='+encodeURIComponent(text);
+  window.open(url,'_blank');
+  addLog('分享到Telegram');
+}
 
 // ===== 可拖拽伸缩布局 =====
 (function initResizablePanels(){

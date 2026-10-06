@@ -325,6 +325,23 @@ body.dark .export-menu-item{color:#ccc}
 body.dark .export-menu-item:hover{background:#2a2a4a}
 body.dark #exportMenu{background:#16213e;border-color:#2a2a4a}
 
+.media-item{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);transition:transform .2s;position:relative}
+.media-item:hover{transform:translateY(-2px)}
+.media-item img{width:100%;height:140px;object-fit:cover;display:block;cursor:pointer}
+.media-item-info{padding:8px;font-size:11px}
+.media-item-name{color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.media-item-cat{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;color:#fff}
+.cat-poster{background:#E91E63}.cat-reference{background:#2196F3}.cat-screenshot{background:#4CAF50}.cat-other{background:#999}
+.media-item-actions{position:absolute;top:6px;right:6px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.media-item:hover .media-item-actions{opacity:1}
+.media-item-actions button{width:28px;height:28px;border-radius:50%;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.media-del{background:#f44336;color:#fff}
+.media-copy{background:#2196F3;color:#fff}
+body.dark #mediaLibView{background:#0f0f1a}
+body.dark .media-item{background:#16213e}
+body.dark .media-item-name{color:#ccc}
+
+
 
 .main-layout{display:flex;gap:0;min-height:calc(100vh - 120px);position:relative}
 .left-panel{width:220px;min-width:160px;background:#fff;border-right:1px solid #e0e0e0;padding:12px;overflow-y:auto;max-height:calc(100vh - 120px);position:relative;flex-shrink:0}
@@ -462,6 +479,7 @@ body.dark #funnelView.active,body.dark #scriptlibView.active,body.dark #reportVi
       <button class="btn btn-primary btn-block" onclick="showView('funnel')">📊 转化漏斗</button>
       <button class="btn btn-success btn-block" onclick="showView('scriptlib')">💬 话术库</button>
       <button class="btn btn-warning btn-block" onclick="showView('report')">📈 阶段报告</button>
+      <button class="btn btn-block" style="background:#795548;color:#fff" onclick="showMediaLib()">🖼️ 素材库</button>
     </div>
   </div>
   <div class="resizer" data-panel="left" title="拖拽调整宽度"></div>
@@ -507,6 +525,27 @@ body.dark #funnelView.active,body.dark #scriptlibView.active,body.dark #reportVi
 <div id="funnelView" style="display:none"><div class="funnel-panel"><h3>📊 全阶段转化漏斗</h3><div class="funnel-stages" id="funnelStages"></div></div><button class="view-close-btn" onclick="closeView()">✕ 关闭</button></div>
 <div id="scriptlibView" style="display:none"><div class="script-lib-panel"><h3>💬 全局话术复用库</h3><div id="scriptLibContent"></div><button class="btn btn-primary" onclick="addScriptLibItem()" style="margin-top:12px">+ 添加话术</button></div><button class="view-close-btn" onclick="closeView()">✕ 关闭</button></div>
 <div id="reportView" style="display:none"><div class="report-panel"><h3>📈 阶段运营报告</h3><div id="reportContent"></div></div><button class="view-close-btn" onclick="closeView()">✕ 关闭</button></div>
+<div id="mediaLibView" style="display:none;position:fixed;top:120px;left:240px;right:320px;bottom:0;overflow-y:auto;padding:20px;background:#f8f9fa;z-index:50">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h3 style="margin:0">🖼️ 图片素材库</h3>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="mediaCategoryFilter" onchange="renderMediaLib()" style="padding:6px 10px;border-radius:4px;border:1px solid #ddd">
+        <option value="all">全部分类</option>
+        <option value="poster">课程海报</option>
+        <option value="reference">参考素材</option>
+        <option value="screenshot">聊天截图</option>
+        <option value="other">其他</option>
+      </select>
+      <input type="file" id="mediaUpload" accept="image/*" multiple style="display:none" onchange="handleMediaUpload(this.files)">
+      <button class="btn btn-primary" onclick="document.getElementById('mediaUpload').click()">📤 上传图片</button>
+      <button class="btn btn-dark" onclick="closeMediaLib()">✕ 关闭</button>
+    </div>
+  </div>
+  <div id="mediaLibContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px"></div>
+  <div id="mediaLibEmpty" style="text-align:center;color:#999;padding:60px;display:none">
+    📷 还没有图片，点击「上传图片」添加素材
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -990,6 +1029,79 @@ function openTelegramShare(text){
   var url='https://t.me/share/url?text='+encodeURIComponent(text);
   window.open(url,'_blank');
   addLog('分享到Telegram');
+}
+
+// ===== 图片素材库 =====
+var MEDIA_KEY='ridou_media_lib';
+var mediaLib=[];
+function loadMediaLib(){try{mediaLib=JSON.parse(localStorage.getItem(MEDIA_KEY)||'[]')}catch(e){mediaLib=[]}}
+function saveMediaLib(){try{localStorage.setItem(MEDIA_KEY,JSON.stringify(mediaLib))}catch(e){showToast('存储空间不足，请删除部分图片')}}
+function showMediaLib(){loadMediaLib();document.getElementById('mediaLibView').style.display='block';renderMediaLib()}
+function closeMediaLib(){document.getElementById('mediaLibView').style.display='none'}
+function handleMediaUpload(files){
+  if(!files||files.length===0)return;
+  var category=prompt('请选择分类：1=课程海报 2=参考素材 3=聊天截图 4=其他','1');
+  var catMap={'1':'poster','2':'reference','3':'screenshot','4':'other'};
+  var cat=catMap[category]||'other';
+  var catNames={poster:'课程海报',reference:'参考素材',screenshot:'聊天截图',other:'其他'};
+  var loaded=0;
+  for(var i=0;i<files.length;i++){
+    (function(file){
+      var reader=new FileReader();
+      reader.onload=function(e){
+        mediaLib.push({id:Date.now()+Math.random(),name:file.name,category:cat,catName:catNames[cat],data:e.target.result,size:Math.round(file.size/1024),time:new Date().toLocaleString()});
+        loaded++;
+        if(loaded===files.length){saveMediaLib();renderMediaLib();showToast('已上传 '+files.length+' 张图片 ✓')}};
+      reader.readAsDataURL(file);
+    })(files[i]);
+  }
+}
+function renderMediaLib(){
+  var filter=document.getElementById('mediaCategoryFilter').value;
+  var list=filter==='all'?mediaLib:mediaLib.filter(function(m){return m.category===filter});
+  var content=document.getElementById('mediaLibContent');
+  var empty=document.getElementById('mediaLibEmpty');
+  if(list.length===0){content.innerHTML='';empty.style.display='block';return}
+  empty.style.display='none';
+  var h='';
+  list.forEach(function(m){
+    h+='<div class="media-item" data-id="'+m.id+'">';
+    h+='<img src="'+m.data+'" alt="'+m.name+'" class="media-preview">';
+    h+='<div class="media-item-actions">';
+    h+='<button class="media-copy" title="复制图片">📋</button>';
+    h+='<button class="media-del" title="删除">🗑️</button>';
+    h+='</div>';
+    h+='<div class="media-item-info">';
+    h+='<div class="media-item-name">'+m.name+'</div>';
+    h+='<span class="media-item-cat cat-'+m.category+'">'+m.catName+'</span> <span style="color:#999">'+m.size+'KB</span>';
+    h+='</div></div>';
+  });
+  content.innerHTML=h;
+  // Event delegation
+  content.querySelectorAll('.media-item').forEach(function(item){
+    var id=item.getAttribute('data-id');
+    item.querySelector('.media-preview').addEventListener('click',function(){previewMedia(id)});
+    item.querySelector('.media-copy').addEventListener('click',function(){copyMedia(id)});
+    item.querySelector('.media-del').addEventListener('click',function(){deleteMedia(id)});
+  });
+}
+function deleteMedia(id){
+  if(!confirm('确定删除这张图片？'))return;
+  mediaLib=mediaLib.filter(function(m){return String(m.id)!==String(id)});
+  saveMediaLib();renderMediaLib();showToast('已删除 ✓');
+}
+function copyMedia(id){
+  var m=mediaLib.find(function(x){return String(x.id)===String(id)});
+  if(!m)return;
+  var ta=document.createElement('textarea');ta.value=m.data;document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');showToast('图片Base64已复制 ✓')}catch(e){showToast('复制失败')}
+  document.body.removeChild(ta);
+}
+function previewMedia(id){
+  var m=mediaLib.find(function(x){return String(x.id)===String(id)});
+  if(!m)return;
+  var w=window.open('','_blank');
+  w.document.write('<title>'+m.name+'</title><body style="margin:0;background:#333;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+m.data+'" style="max-width:90%;max-height:90vh"></body>');
 }
 
 // ===== 可拖拽伸缩布局 =====
